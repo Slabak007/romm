@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
+import {
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  ref,
+  watch,
+  nextTick,
+} from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
@@ -19,7 +27,6 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -62,15 +69,23 @@ const loaderStatus = ref<
 
 let pausedByPrompt = false;
 
-const exitOptions = [
-  { id: "save", label: t('console.game-exit-save'), desc: t('console.game-exit-save-desc') },
+const exitOptions = computed(() => [
+  {
+    id: "save",
+    label: "console.game-exit-save",
+    desc: "console.game-exit-save-desc",
+  },
   {
     id: "nosave",
-    label: t('console.game-exit-nosave'),
-    desc: t('console.game-exit-nosave-desc'),
+    label: "console.game-exit-nosave",
+    desc: "console.game-exit-nosave-desc",
   },
-  { id: "cancel", label: t('console.game-exit-cancel'), desc: t('console.game-exit-cancel-desc') },
-];
+  {
+    id: "cancel",
+    label: "console.game-exit-cancel",
+    desc: "console.game-exit-cancel-desc",
+  },
+]);
 
 const { subscribe } = useInputScope();
 let exitScopeOff: (() => void) | null = null;
@@ -113,7 +128,7 @@ function handleExitAction(action: string) {
     return true;
   }
   if (action === "confirm") {
-    activateExitOption(exitOptions[focusedExitIndex.value].id);
+    activateExitOption(exitOptions.value[focusedExitIndex.value].id);
     return true;
   }
   if (action === "back") {
@@ -224,7 +239,7 @@ function activateExitOption(id: string) {
 }
 
 function moveExitFocus(delta: number) {
-  const total = exitOptions.length;
+  const total = exitOptions.value.length;
   focusedExitIndex.value = (focusedExitIndex.value + delta + total) % total;
 }
 
@@ -287,7 +302,7 @@ function attachGamepadExit(options?: { windowMs?: number }) {
         }
       } else {
         if (edge(BTN.A))
-          activateExitOption(exitOptions[focusedExitIndex.value].id);
+          activateExitOption(exitOptions.value[focusedExitIndex.value].id);
         if (edge(BTN.B)) cancelExit();
       }
       for (let i = 0; i < pad.buttons.length; i++) {
@@ -701,7 +716,9 @@ onBeforeUnmount(() => {
           {{ t("console.emulator-cdn") }}
         </template>
         <template v-else-if="loaderStatus === 'failed'">
-          <div class="text-red-300 font-medium">{{ t("console.emulator-failed") }}</div>
+          <div class="text-red-300 font-medium">
+            {{ t("console.emulator-failed") }}
+          </div>
           <div class="mt-1 text-[11px] max-w-xs leading-snug break-words">
             {{ loaderError }}
           </div>
@@ -739,7 +756,7 @@ onBeforeUnmount(() => {
             :style="{ color: 'var(--console-modal-text)' }"
             class="text-xl font-bold tracking-wide drop-shadow"
           >
-            {{ t('console.game-exit') }}
+            {{ t("console.game-exit") }}
           </h2>
           <button
             :disabled="savingState"
@@ -790,7 +807,7 @@ onBeforeUnmount(() => {
                   }"
                   class="font-semibold text-sm tracking-wide"
                 >
-                  {{ opt.label }}
+                  {{ t(opt.label) }}
                   <span
                     v-if="opt.id === 'save' && savingState"
                     :style="{ color: 'var(--console-play-save-status-text)' }"
@@ -804,7 +821,7 @@ onBeforeUnmount(() => {
                   :style="{ color: 'var(--console-modal-text-secondary)' }"
                   class="text-xs mt-0.5 opacity-50"
                 >
-                  {{ opt.desc }}
+                  {{ t(opt.desc) }}
                 </div>
               </div>
               <div
