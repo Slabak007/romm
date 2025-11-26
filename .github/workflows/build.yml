@@ -1,13 +1,16 @@
-name: Build Docker Image (Latest Only to Docker Hub)
+name: Build Docker Image and Trigger Docs/Website
 
 on:
+  # push:
+  #   tags:
+  #     - "[0-9]+.[0-9]+.[0-9]+*"
   release:
     types: [published]
 
 permissions:
   id-token: write
   contents: write
-  packages: write # I když nepoužíváme GHCR, ponechávám pro jistotu
+  packages: write
   actions: write
 
 jobs:
@@ -53,35 +56,18 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Krok 'Login to GitHub Container Registry' byl odstraněn.
-
-      - name: Generate Docker metadata (latest only)
-        id: meta-latest
-        uses: docker/metadata-action@v5.8.0
-        with:
-          # Pouze Docker Hub image
-          images: |
-            name=slabak007/romm
-          tags: |
-            type=raw,value=latest
-          labels: |
-            org.opencontainers.image.version=latest
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows youm to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
-            org.opencontainers.image.licenses="AGPLv3"
-
       - name: Set version
         run: |
-          sed -i 's/<version>/latest/' backend/__version__.py
+          sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
 
-      - name: Build and Push full image with 'latest' tag
-        id: build-full-latest
+      - name: Build full image
+        id: build-full
         uses: docker/build-push-action@v6.18.0
         with:
           file: docker/Dockerfile
           context: .
           push: true
           platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta-latest.outputs.tags }}
-          labels: ${{ steps.meta-latest.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           target: full-image
