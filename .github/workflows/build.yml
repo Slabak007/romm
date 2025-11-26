@@ -1,16 +1,13 @@
-name: Build Docker Image and Trigger Docs/Website
+name: Build Docker Image (Latest Only to Docker Hub)
 
 on:
-  # push:
-  #   tags:
-  #     - "[0-9]+.[0-9]+.[0-9]+*"
   release:
     types: [published]
 
 permissions:
   id-token: write
   contents: write
-  packages: write
+  packages: write # I když nepoužíváme GHCR, ponechávám pro jistotu
   actions: write
 
 jobs:
@@ -53,104 +50,38 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3.5.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.5.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # Krok 'Login to GitHub Container Registry' byl odstraněn.
 
-      - name: Generate Docker metadata (slim)
-        id: meta-slim
+      - name: Generate Docker metadata (latest only)
+        id: meta-latest
         uses: docker/metadata-action@v5.8.0
         with:
+          # Pouze Docker Hub image
           images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
-          flavor: |
-            latest=auto
-            suffix=-slim,onlatest=true
+            name=slabak007/romm
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=latest
           labels: |
-            org.opencontainers.image.version={{version}}-slim
+            org.opencontainers.image.version=latest
             org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
-            org.opencontainers.image.licenses="AGPLv3"
-
-      - name: Generate Docker metadata (full)
-        id: meta
-        uses: docker/metadata-action@v5.8.0
-        with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          labels: |
-            org.opencontainers.image.version={{version}}
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
+            org.opencontainers.image.description="RomM (ROM Manager) allows youm to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
             org.opencontainers.image.licenses="AGPLv3"
 
       - name: Set version
         run: |
-          sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
+          sed -i 's/<version>/latest/' backend/__version__.py
 
-      - name: Build slim image
-        id: build-slim
+      - name: Build and Push full image with 'latest' tag
+        id: build-full-latest
         uses: docker/build-push-action@v6.18.0
         with:
           file: docker/Dockerfile
           context: .
           push: true
           platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta-slim.outputs.tags }}
-          labels: ${{ steps.meta-slim.outputs.labels }}
-          target: slim-image
-
-      - name: Build full image
-        id: build-full
-        uses: docker/build-push-action@v6.18.0
-        with:
-          file: docker/Dockerfile
-          context: .
-          push: true
-          platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-latest.outputs.tags }}
+          labels: ${{ steps.meta-latest.outputs.labels }}
           target: full-image
-
-  trigger-docs-and-web:
-    permissions:
-      actions: write
-    needs: build
-    runs-on: ubuntu-latest
-    if: needs.build.result == 'success' && github.event.release.prerelease == false
-    steps:
-      - name: Trigger docs build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/docs/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
-        env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}
-
-      - name: Trigger website build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/marketing-site/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
-        env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}
