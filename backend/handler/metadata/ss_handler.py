@@ -689,7 +689,7 @@ class SSHandler(MetadataHandler):
             search_term, remove_punctuation=False
         )
         res = await self._search_rom(
-            self.SEARCH_TERM_NORMALIZER.sub(" : ", normalized_search_term),
+            self.SEARCH_TERM_NORMALIZER.sub(" - ", normalized_search_term),
             platform_ss_id,
         )
 
@@ -843,6 +843,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.NINTENDO_DSI: {"id": 15, "name": "Nintendo DS"},
     UPS.SWITCH: {"id": 225, "name": "Switch"},
     UPS.ODYSSEY_2: {"id": 104, "name": "Videopac G7000"},
+    UPS.OPENBOR: {"id": 214, "name": "OpenBOR"},
     UPS.ORIC: {"id": 131, "name": "Oric 1 / Atmos"},
     UPS.PC_8800_SERIES: {"id": 221, "name": "NEC PC-8801"},
     UPS.PC_9800_SERIES: {"id": 208, "name": "NEC PC-9801"},
