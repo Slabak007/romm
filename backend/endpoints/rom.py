@@ -564,7 +564,7 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    files = list(db_rom_handler.get_rom_files(rom.id))
+    files = rom.files
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
@@ -641,7 +641,7 @@ async def get_rom_content(
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
 
-    files = list(db_rom_handler.get_rom_files(rom.id))
+    files = rom.files
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
@@ -1039,7 +1039,16 @@ async def update_rom(
     # Handle special media files from Screenscraper when the ID has changed
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         preferred_media_types = get_preferred_media_types()
+
         for media_type in preferred_media_types:
+            # Remove old media files if the ss_id is changing
+            if rom.ss_metadata and rom.ss_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.remove_media_resources_path(
+                    rom.platform_id,
+                    rom.id,
+                    media_type,
+                )
+
             if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
                 await fs_resource_handler.store_media_file(
                     cleaned_data["ss_metadata"][f"{media_type.value}_url"],
